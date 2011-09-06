@@ -1,6 +1,6 @@
 (module openldap
 
-(ldap-initialize ldap-bind)
+(ldap-initialize ldap-bind ldap-unbind)
 
 (import chicken scheme foreign)
 (use data-structures irregex)
@@ -53,18 +53,32 @@ ldap_set_option( NULL, LDAP_OPT_PROTOCOL_VERSION, &protocol );
            (error location (ldap-error->string result)))
          result)))))
 
+(define (verify-connection! location conn)
+  (unless (ldap-connection-pointer conn)
+    (error location "LDAP connection is already unbound")))
+
 (define (ldap-initialize uris)
   (let ((uris (if (list? uris) (string-intersperse uris) uris)))
     (let-location ((connection (c-pointer ldap)))
       ((ldap-lambda 'ldap-initialize (ldap_initialize (c-pointer ldap) c-string))
        (location connection) uris)
-      (make-ldap-connection connection))))
+      (set-finalizer! (make-ldap-connection connection)
+                      (lambda (c)
+                        (and (ldap-connection-pointer c)
+                             (ldap-unbind c)))))))
 
 (define (ldap-bind conn dn pass)
+  (verify-connection! 'ldap-bind conn)
   (= ldap-success
      ((ldap-lambda 'ldap-bind
                    (ldap_simple_bind_s ldap c-string c-string)
                    ldap-invalid-credentials)
       (ldap-connection-pointer conn) (->dn dn) pass)))
+
+(define (ldap-unbind conn)
+  (verify-connection! 'ldap-unbind conn)
+  ((ldap-lambda 'ldap-unbind (ldap_unbind ldap))
+   (ldap-connection-pointer conn))
+  (ldap-connection-pointer-set! conn #f))
 
 )
