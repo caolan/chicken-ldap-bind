@@ -25,6 +25,25 @@ ldap_set_option( NULL, LDAP_OPT_PROTOCOL_VERSION, &protocol );
 (define ldap-error->string
   (foreign-lambda c-string ldap_err2string int))
 
+(define (backslash-escape m)
+  (string-append "\\" (irregex-match-substring m)))
+
+(define (escape-dn-value value)
+  (let* ((value (or (irregex-replace '(seq bos (" #")) value backslash-escape) value))
+         (value (or (irregex-replace '(seq #\space eos) value backslash-escape) value)))
+    (irregex-replace/all '("\"+,;<=>\\") value backslash-escape)))
+
+(define (->dn val)
+  (if (list? val)
+      (string-intersperse
+       (map (lambda (p)
+              (sprintf "~A=~A"
+                       (symbol->string (car p))
+                       (string-intersperse (map escape-dn-value (cdr p)) "+")))
+            val)
+       ",")
+      val))
+
 (define-syntax ldap-lambda
   (syntax-rules ()
     ((_ location (fargs ...) ignore-result ...)
@@ -46,6 +65,6 @@ ldap_set_option( NULL, LDAP_OPT_PROTOCOL_VERSION, &protocol );
      ((ldap-lambda 'ldap-bind
                    (ldap_simple_bind_s ldap c-string c-string)
                    ldap-invalid-credentials)
-      (ldap-connection-pointer conn) dn pass)))
+      (ldap-connection-pointer conn) (->dn dn) pass)))
 
 )
