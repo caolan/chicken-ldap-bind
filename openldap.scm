@@ -3,7 +3,7 @@
 (ldap-initialize ldap-bind)
 
 (import chicken scheme foreign)
-(use foreigners data-structures)
+(use data-structures irregex)
 
 (foreign-declare "#include <ldap.h>")
 
