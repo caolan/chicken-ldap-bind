@@ -38,7 +38,7 @@ ldap_set_option( NULL, LDAP_OPT_PROTOCOL_VERSION, &protocol );
       (string-intersperse
        (map (lambda (p)
               (sprintf "~A=~A"
-                       (symbol->string (car p))
+                       (car p)
                        (string-intersperse (map escape-dn-value (cdr p)) "+")))
             val)
        ",")
