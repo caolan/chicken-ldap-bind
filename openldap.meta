@@ -1,0 +1,4 @@
+((category db)
+ (author "Moritz Heidkamp")
+ (license "BSD")
+ (synopsis "Bindings for OpenLDAP's libldap"))
