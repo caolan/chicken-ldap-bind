@@ -14,13 +14,15 @@
 (define-foreign-variable ldap-version-3 int LDAP_VERSION3)
 (define-foreign-variable ldap-option-protocol-version int LDAP_OPT_PROTOCOL_VERSION)
 
+(define-foreign-variable ldap-opt-success int LDAP_OPT_SUCCESS)
+
 (define-record ldap-connection
   pointer)
 
-(foreign-code "
-int protocol = LDAP_VERSION3;
-ldap_set_option( NULL, LDAP_OPT_PROTOCOL_VERSION, &protocol );
-")
+(define ldap-versions
+  `((1 . ,(foreign-value LDAP_VERSION1 int))
+    (2 . ,(foreign-value LDAP_VERSION2 int))
+    (3 . ,(foreign-value LDAP_VERSION3 int))))
 
 (define ldap-error->string
   (foreign-lambda c-string ldap_err2string int))
@@ -57,11 +59,24 @@ ldap_set_option( NULL, LDAP_OPT_PROTOCOL_VERSION, &protocol );
   (unless (ldap-connection-pointer conn)
     (error location "LDAP connection is already unbound")))
 
-(define (ldap-initialize uris)
+(define (ldap-option-set! ldap option value)
+  (let ((result ((foreign-lambda int ldap_set_option ldap int c-pointer)
+                 ldap option value)))
+    (or (= result ldap-success)
+        (error 'ldap-option-set! "An error occured setting an LDAP option" result))))
+
+(define (ldap-initialize uris #!optional (version 3))
   (let ((uris (if (list? uris) (string-intersperse uris) uris)))
-    (let-location ((connection (c-pointer ldap)))
+    (let-location ((connection (c-pointer ldap))
+                   (version int (alist-ref version ldap-versions)))
+
       ((ldap-lambda 'ldap-initialize (ldap_initialize (c-pointer ldap) c-string))
        (location connection) uris)
+
+      (ldap-option-set! connection
+                        (foreign-value LDAP_OPT_PROTOCOL_VERSION int) 
+                        (location version))
+      
       (set-finalizer! (make-ldap-connection connection)
                       (lambda (c)
                         (and (ldap-connection-pointer c)
