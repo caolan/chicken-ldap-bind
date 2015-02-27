@@ -1,4 +1,4 @@
-(compile -s -L -lldap ldap-bind.scm -J)
+(compile -s -L -lldap -llber ldap-bind.scm -J)
 (compile -s ldap-bind.import.scm)
 
 (install-extension 

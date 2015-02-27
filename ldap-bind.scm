@@ -1,18 +1,18 @@
-(module ldap-bind
-
-(ldap-initialize ldap-bind ldap-unbind)
+(module ldap-bind (ldap-initialize ldap-bind ldap-unbind)
 
 (import chicken scheme foreign)
 (use data-structures irregex)
 
 (foreign-declare "#include <ldap.h>")
+(foreign-declare "#include <lber.h>")
 
 (define-foreign-type ldap (c-pointer (struct "ldap")))
 
-(define-foreign-variable ldap-success int LDAP_SUCCESS)
-(define-foreign-variable ldap-invalid-credentials int LDAP_INVALID_CREDENTIALS)
+(define-foreign-variable ldap-success integer LDAP_SUCCESS)
+(define-foreign-variable ldap-invalid-credentials integer LDAP_INVALID_CREDENTIALS)
 (define-foreign-variable ldap-version-3 int LDAP_VERSION3)
-(define-foreign-variable ldap-option-protocol-version int LDAP_OPT_PROTOCOL_VERSION)
+(define-foreign-variable ldap-option-protocol-version int
+                         LDAP_OPT_PROTOCOL_VERSION)
 
 (define-foreign-variable ldap-opt-success int LDAP_OPT_SUCCESS)
 
@@ -31,8 +31,10 @@
   (string-append "\\" (irregex-match-substring m)))
 
 (define (escape-dn-value value)
-  (let* ((value (or (irregex-replace '(seq bos (" #")) value backslash-escape) value))
-         (value (or (irregex-replace '(seq #\space eos) value backslash-escape) value)))
+  (let* ((value (or (irregex-replace '(seq bos (" #")) value backslash-escape)
+                    value))
+         (value (or (irregex-replace '(seq #\space eos) value backslash-escape)
+                    value)))
     (irregex-replace/all '("\"+,;<=>\\") value backslash-escape)))
 
 (define (->dn val)
@@ -46,14 +48,10 @@
        ",")
       val))
 
-(define-syntax ldap-lambda
-  (syntax-rules ()
-    ((_ location (fargs ...) ignore-result ...)
-     (lambda args
-       (let ((result (apply (foreign-lambda int fargs ...) args)))
-         (unless (memq result (list ldap-success ignore-result ...))
-           (error location (ldap-error->string result)))
-         result)))))
+(define (check-errors location result #!key (ignored '()))
+  (unless (memq result (cons ldap-success ignored))
+    (error location (ldap-error->string result)))
+         result)
 
 (define (verify-connection! location conn)
   (unless (ldap-connection-pointer conn)
@@ -63,37 +61,53 @@
   (let ((result ((foreign-lambda int ldap_set_option ldap int c-pointer)
                  ldap option value)))
     (or (= result ldap-success)
-        (error 'ldap-option-set! "An error occured setting an LDAP option" result))))
+        (error
+          'ldap-option-set! "An error occured setting an LDAP option" result))))
+
+(define c-ldap-initialize
+  (foreign-lambda integer "ldap_initialize" (c-pointer ldap) c-string))
 
 (define (ldap-initialize uris #!optional (version 3))
   (let ((uris (if (list? uris) (string-intersperse uris) uris)))
     (let-location ((connection (c-pointer ldap))
                    (version int (alist-ref version ldap-versions)))
+      (check-errors
+        'ldap-initialize
+        (c-ldap-initialize (location connection) uris))
+      (ldap-option-set!
+        connection
+        (foreign-value LDAP_OPT_PROTOCOL_VERSION int) 
+        (location version))
+      (set-finalizer!
+        (make-ldap-connection connection)
+        (lambda (c) (and (ldap-connection-pointer c) (ldap-unbind c)))))))
 
-      ((ldap-lambda 'ldap-initialize (ldap_initialize (c-pointer ldap) c-string))
-       (location connection) uris)
 
-      (ldap-option-set! connection
-                        (foreign-value LDAP_OPT_PROTOCOL_VERSION int) 
-                        (location version))
-      
-      (set-finalizer! (make-ldap-connection connection)
-                      (lambda (c)
-                        (and (ldap-connection-pointer c)
-                             (ldap-unbind c)))))))
+(define sasl-bind
+  (foreign-lambda* integer ((ldap ld) (c-string dn) (c-string pass))
+    "int r;
+     struct berval creds;
+     struct berval *server_creds;
+     creds.bv_val = pass;
+     creds.bv_len = strlen(pass);
+     r = ldap_sasl_bind_s(ld, dn, NULL, &creds, NULL, NULL, &server_creds);
+     C_return(r);"))
 
 (define (ldap-bind conn dn pass)
   (verify-connection! 'ldap-bind conn)
   (= ldap-success
-     ((ldap-lambda 'ldap-bind
-                   (ldap_simple_bind_s ldap c-string c-string)
-                   ldap-invalid-credentials)
-      (ldap-connection-pointer conn) (->dn dn) pass)))
+     (check-errors 'ldap-bind
+                   (sasl-bind (ldap-connection-pointer conn) (->dn dn) pass)
+                   ignored: (list ldap-invalid-credentials))))
+
+(define c-ldap-unbind
+  (foreign-lambda integer "ldap_unbind" (c-pointer ldap)))
 
 (define (ldap-unbind conn)
   (verify-connection! 'ldap-unbind conn)
-  ((ldap-lambda 'ldap-unbind (ldap_unbind ldap))
-   (ldap-connection-pointer conn))
+  (check-errors
+    'ldap-unbind
+    (c-ldap-unbind (ldap-connection-pointer conn)))
   (ldap-connection-pointer-set! conn #f))
 
 )
