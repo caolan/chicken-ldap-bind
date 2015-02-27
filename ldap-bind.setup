@@ -1,0 +1,7 @@
+(compile -s -L -lldap ldap-bind.scm -J)
+(compile -s ldap-bind.import.scm)
+
+(install-extension 
+ 'ldap-bind
+ '("ldap-bind.so" "ldap-bind.import.so")
+ '((version "0.0.1")))

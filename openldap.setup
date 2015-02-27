@@ -1,7 +1,0 @@
-(compile -s -L -lldap openldap.scm -J)
-(compile -s openldap.import.scm)
-
-(install-extension 
- 'openldap
- '("openldap.so" "openldap.import.so")
- '((version "0.0.1")))

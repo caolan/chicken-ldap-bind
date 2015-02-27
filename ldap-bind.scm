@@ -1,4 +1,4 @@
-(module openldap
+(module ldap-bind
 
 (ldap-initialize ldap-bind ldap-unbind)
 

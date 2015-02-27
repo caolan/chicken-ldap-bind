@@ -1,0 +1,4 @@
+((category db)
+ (author "Caolan McMahon")
+ (license "BSD")
+ (synopsis "Implements LDAP bind for authentication using OpenLDAP"))
