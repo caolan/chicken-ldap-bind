@@ -7,6 +7,7 @@
 (foreign-declare "#include <lber.h>")
 
 (define-foreign-type ldap (c-pointer (struct "ldap")))
+(define-foreign-type ldap-control (c-pointer (struct "ldapcontrol")))
 
 (define-foreign-variable ldap-success integer LDAP_SUCCESS)
 (define-foreign-variable ldap-invalid-credentials integer LDAP_INVALID_CREDENTIALS)
@@ -76,7 +77,7 @@
         (c-ldap-initialize (location connection) uris))
       (ldap-option-set!
         connection
-        (foreign-value LDAP_OPT_PROTOCOL_VERSION int) 
+        (foreign-value LDAP_OPT_PROTOCOL_VERSION int)
         (location version))
       (set-finalizer!
         (make-ldap-connection connection)
@@ -101,13 +102,14 @@
                    ignored: (list ldap-invalid-credentials))))
 
 (define c-ldap-unbind
-  (foreign-lambda integer "ldap_unbind" (c-pointer ldap)))
+  (foreign-lambda integer "ldap_unbind_ext"
+    ldap (c-pointer ldap-control) (c-pointer ldap-control)))
 
 (define (ldap-unbind conn)
   (verify-connection! 'ldap-unbind conn)
   (check-errors
     'ldap-unbind
-    (c-ldap-unbind (ldap-connection-pointer conn)))
+    (c-ldap-unbind (ldap-connection-pointer conn) #f #f))
   (ldap-connection-pointer-set! conn #f))
 
 )
