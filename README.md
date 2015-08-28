@@ -4,6 +4,8 @@ A CHICKEN egg implementing LDAP bind for authentication purposes using
 the OpenLDAP library. This is no a complete binding to the OpenLDAP
 library and only covers the authentication use-case.
 
+Requires OpenLDAP / libldap and liblber to be installed.
+
 ## API
 
 #### (ldap-initialize uris #!optional (version 3))
@@ -45,3 +47,9 @@ the LDAP server is closed and the connection record becomes invalid.
 
 (ldap-unbind ld)
 ```
+
+## Author
+
+Original implementation work by Moritz Heidkamp, updated to latest APIs
+and released with just the ldap-bind feature by Caolan McMahon (with kind
+permission).
