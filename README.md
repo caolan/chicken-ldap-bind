@@ -1,7 +1,7 @@
 # ldap-bind
 
 A CHICKEN egg implementing LDAP bind for authentication purposes using
-the OpenLDAP library. This is no a complete binding to the OpenLDAP
+the OpenLDAP library. This is not a complete binding to the OpenLDAP
 library and only covers the authentication use-case.
 
 Requires OpenLDAP / libldap and liblber to be installed.
@@ -32,7 +32,7 @@ the LDAP server is closed and the connection record becomes invalid.
 
 (define ld (ldap-initialize "ldaps://example.com"))
 
-(if (ldap-bind "uid=testuser,cn=users,dc=example,dc=com" "password")
+(if (ldap-bind ld "uid=testuser,cn=users,dc=example,dc=com" "password")
   (print "Welcome, authenticated user!")
   (print "Invalid Credentials"))
 
@@ -41,7 +41,7 @@ the LDAP server is closed and the connection record becomes invalid.
 (define base-dn
   '((cn "users") (dc "example") (dc "com")))
 
-(if (ldap-bind (cons '(uid "testuser") base-dn) "password")
+(if (ldap-bind ld (cons '(uid "testuser") base-dn) "password")
   (print "Welcome, authenticated user!")
   (print "Invalid Credentials"))
 
