@@ -36,7 +36,7 @@
                     value))
          (value (or (irregex-replace '(seq #\space eos) value backslash-escape)
                     value)))
-    (irregex-replace/all '("\"+,;<=>\\") value backslash-escape)))
+    (irregex-replace/all '("\"+,;<=>\\#") value backslash-escape)))
 
 (define (->dn val)
   (if (list? val)
